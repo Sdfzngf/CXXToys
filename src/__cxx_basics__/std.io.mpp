@@ -1,0 +1,24 @@
+module;
+
+#include <iostream>
+#include <meta>
+
+export module std.io;
+
+export namespace std::io {
+template <typename T> class PrintResult {
+
+public:
+  PrintResult(T a, bool first = false) {
+    std::cout << (first ? '\0' : ' ') << a;
+  }
+  template <typename T2> auto operator,(T2 a) { return PrintResult<T2>(a); }
+};
+
+class PrintClassaa {
+public:
+  template <typename T> PrintResult<T> operator,(T a) {
+    return PrintResult<T>(a, true);
+  }
+} echo;
+} // namespace std::io

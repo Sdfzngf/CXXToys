@@ -1,0 +1,6 @@
+import CXX.Lang.Main;
+
+int main(){
+    CXXMain::Main();
+    return 0;
+}

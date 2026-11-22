@@ -1,0 +1,90 @@
+module;
+#include <new>
+import std;
+
+namespace{
+    consteval auto is_builtin_function(std::meta::info m) -> bool {
+        auto loc = std::meta::source_location_of(m);
+        const char *raw = loc.file_name();
+        if (raw != nullptr) {
+            std::string_view file = raw;
+            if (file.find("built-in") != std::string_view::npos &&
+                file.find("__builtin") != std::string_view::npos) {
+                return true;
+                }
+        }
+        if (std::meta::has_identifier(m)) {
+            std::string_view name = std::meta::identifier_of(m);
+            if ((name.size() >= 2 && name.substr(0, 2) == "__")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    consteval auto is_callable_global(std::meta::info m) -> bool {
+        if (!std::meta::is_function(m))
+            return false;
+        if (!std::meta::has_identifier(m))
+            return false;
+        if (std::meta::is_function_template(m))
+            return false;
+        if (std::meta::identifier_of(m) == "main")
+            return false;
+        if (is_builtin_function(m))
+            return false;
+        return true;
+    }
+
+    consteval auto get_members_info(std::meta::info ns) -> std::meta::info {
+        return std::meta::reflect_constant_array(
+            std::meta::members_of(ns, std::meta::access_context::unchecked()));
+    }
+
+    consteval auto gmi(std::meta::info ns) -> std::meta::info {
+        return get_members_info(ns);
+    }
+}
+
+export module lang.reflect;
+
+export namespace lang {
+
+    // 找不到就返回空info，本函数内不再断言
+    consteval auto lookup_entity(std::meta::info scope, std::string_view target_name) -> std::meta::info {
+        std::meta::info found{};
+        bool found_flag = false;
+
+        for (auto m : std::meta::members_of(scope, std::meta::access_context::unchecked())) {
+            if (!std::meta::has_identifier(m)) continue;
+            if (is_builtin_function(m)) continue;
+
+            auto id = std::meta::identifier_of(m);
+            if (id == target_name) {
+                found = m;
+                found_flag = true;
+                break;
+            }
+        }
+        return found;
+    }
+
+    class info_t{};
+    struct reflect_t {info_t getInfo;};
+    constexpr reflect_t reflect{};
+
+    consteval auto operator|(reflect_t, std::string_view name) -> std::meta::info {
+        if (name == "__cxx_global__") {
+            return ^^::;
+        }
+        return lookup_entity(^^::, name);
+    }
+
+    consteval auto operator|(info_t, std::string_view name) -> std::meta::info {
+        if (name == "__cxx_global__") {
+            return gmi(^^::);
+        }
+        return gmi(lookup_entity(^^::, name));
+    }
+
+} // namespace lang

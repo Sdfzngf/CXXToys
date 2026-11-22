@@ -1,0 +1,124 @@
+module;
+
+import std;
+
+export module jaxx.util.Function;
+
+export namespace jaxx::util {
+  consteval auto get_members_info(std::meta::info ns) -> std::meta::info {
+    return std::meta::reflect_constant_array(
+      std::meta::members_of(ns, std::meta::access_context::unchecked()));
+  }
+
+  consteval auto gmi(std::meta::info ns) -> std::meta::info {
+    return get_members_info(ns);
+  }
+
+  consteval auto is_builtin_function(std::meta::info m) -> bool {
+    auto loc = std::meta::source_location_of(m);
+    const char *raw = loc.file_name();
+    if (raw != nullptr) {
+      std::string_view file = raw;
+      if (file.find("built-in") != std::string_view::npos &&
+        file.find("__builtin") != std::string_view::npos) {
+        return true;
+        }
+    }
+    if (std::meta::has_identifier(m)) {
+      std::string_view name = std::meta::identifier_of(m);
+      if ((name.size() >= 2 && name.substr(0, 2) == "__")) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  consteval auto is_callable_global(std::meta::info m) -> bool {
+    if (!std::meta::is_function(m))
+      return false;
+    if (!std::meta::has_identifier(m))
+      return false;
+    if (std::meta::is_function_template(m))
+      return false;
+    if (std::meta::identifier_of(m) == "main")
+      return false;
+    if (is_builtin_function(m))
+      return false;
+    return true;
+  }
+
+  consteval auto get_global_functions() {
+    std::vector<std::meta::info> result;
+    for (auto m :
+      std::meta::members_of(^^::, std::meta::access_context::current())) {
+      if (is_callable_global(m))
+        result.push_back(m);
+      }
+      return result;
+  }
+
+  consteval auto ggf() { return get_global_functions(); }
+
+  namespace detail {
+    template <std::meta::info Funcs, auto Name, typename... Args>
+    consteval auto find_target() -> std::meta::info {
+      template for (constexpr auto mem : [:Funcs:]) {
+        if constexpr (std::meta::is_function(mem) && !is_builtin_function(mem) &&
+          std::meta::has_identifier(mem) &&
+          std::meta::identifier_of(mem) == Name &&
+          std::meta::is_invocable_type(std::meta::type_of(mem),
+                                       {^^Args...})) {
+          return mem;
+                                       }
+      }
+      return std::meta::info{};
+    }
+
+  }
+  template <std::meta::info Funcs, auto Name, typename... Args>
+  auto call(Args &&...args) -> double {
+    constexpr auto target = detail::find_target<Funcs, Name, Args...>();
+    static_assert(std::meta::has_identifier(target), "function not found");
+
+    if constexpr (std::meta::is_void_type(
+      std::meta::invoke_result(std::meta::type_of(target), {^^Args...}))) {
+      [:target:](std::forward<Args>(args)...);
+    return 0.0;
+      } else {
+        return static_cast<double>(
+          [:target:](std::forward<Args>(args)...));
+      }
+  }
+  template <std::meta::info Funcs, typename... Args>
+  auto call(std::string_view func_name, Args &&...args) -> double {
+    auto found = false;
+    auto result = 0.0;
+
+    template for (constexpr auto mem : [:Funcs:]) {
+      if constexpr (std::meta::is_function(mem) && !is_builtin_function(mem) &&
+        std::meta::has_identifier(mem) &&
+        std::meta::is_invocable_type(std::meta::type_of(mem),
+                                     {^^Args...})) {
+        if (!found && std::meta::identifier_of(mem) == func_name) {
+          if constexpr (std::meta::is_void_type(
+            std::meta::invoke_result(std::meta::type_of(mem), {^^Args...}))) {
+            [:mem:](std::forward<Args>(args)...);
+          found = true;
+            } else if constexpr (std::is_convertible_v<
+              typename[:std::meta::invoke_result(
+                std::meta::type_of(mem), {^^Args...}):],
+                                 double>) {
+              result = static_cast<double>(
+                [:mem:](std::forward<Args>(args)...));
+              found = true;
+                                 }
+        }
+                                     }
+    }
+
+    if (!found)
+      throw std::runtime_error("function not found: " + std::string(func_name));
+    return result;
+  }
+} // namespace jaxx::util

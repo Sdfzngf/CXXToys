@@ -1,0 +1,22 @@
+module;
+
+#include <meta>
+#include <stdexcept>
+
+import jaxx.util.Function;
+
+export module math;
+
+namespace math_ops {
+double add(int a, int b) { return a + b; }
+double sub(int a, int b) { return a - b; }
+double mul(int a, int b) { return a * b; }
+double divi(double a, double b) {
+  if (b == 0)
+    throw std::runtime_error("division by zero");
+  return a / b;
+}
+} // namespace math_ops
+
+export constexpr std::meta::info math =
+    jaxx::util::get_members_info(^^math_ops);

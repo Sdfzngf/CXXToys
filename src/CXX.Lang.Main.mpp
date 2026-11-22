@@ -1,0 +1,41 @@
+module;
+
+import std;
+import jaxx.util.Function;
+import math;
+import std.io;
+import lang.reflect;
+
+using namespace std::io;
+using namespace std;
+using namespace jaxx::util;
+using namespace lang;
+
+export module CXX.Lang.Main;
+namespace nsppack{
+  auto wowowo(const char *t){
+    echo, t, "!\n";
+  }
+  void w(){echo,"1";}void ww(){echo,"11";}void www(){echo,"111";}void wwww(){echo,"1111";}
+}
+class ABC{
+public:
+  static auto m(){
+    echo, "noooo!\n";
+  }
+};
+constexpr auto mj = reflect.getInfo|"nsppack";
+
+export class CXXMain {
+public: static auto Main() {
+  echo, "Hello";
+  call<mj>("wowowo", " World");
+  call<reflect.getInfo|"ABC">("m");
+  string s;
+  for(auto i=1;i<=4;i++){
+    s.push_back('w');
+    call<reflect.getInfo|"nsppack">(s);
+  }
+  return 0;
+}
+};
